@@ -4,13 +4,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, SessionLocal, engine
+from .data.scholarships import seed_scholarships
 from .routers import (
     analyzer_routes,
     application_routes,
     auth_routes,
+    compare_routes,
     dashboard_routes,
     essay_routes,
+    finaid_routes,
+    international_routes,
     major_routes,
+    notification_routes,
     profile_routes,
     recommendation_routes,
     task_routes,
@@ -25,6 +30,7 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_universities(db)
+        seed_scholarships(db)
     finally:
         db.close()
     yield
@@ -60,6 +66,10 @@ app.include_router(major_routes.router)
 app.include_router(essay_routes.router)
 app.include_router(tutor_routes.router)
 app.include_router(recommendation_routes.router)
+app.include_router(finaid_routes.router)
+app.include_router(international_routes.router)
+app.include_router(compare_routes.router)
+app.include_router(notification_routes.router)
 
 
 @app.get("/api/health")

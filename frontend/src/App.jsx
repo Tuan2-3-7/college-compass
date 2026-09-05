@@ -4,7 +4,10 @@ import { api, getToken, setToken } from "./api";
 import Layout from "./components/Layout.jsx";
 import Applications from "./pages/Applications.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
+import Compare from "./pages/Compare.jsx";
 import Competitiveness from "./pages/Competitiveness.jsx";
+import FinancialAid from "./pages/FinancialAid.jsx";
+import International from "./pages/International.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Essays from "./pages/Essays.jsx";
 import Finder from "./pages/Finder.jsx";
@@ -64,6 +67,9 @@ export default function App() {
         <Route path="/advisor" element={<MajorAdvisor />} />
         <Route path="/essays" element={<Essays />} />
         <Route path="/tutor" element={<Tutor />} />
+        <Route path="/compare" element={<Compare />} />
+        <Route path="/aid" element={<FinancialAid />} />
+        <Route path="/international" element={<International />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

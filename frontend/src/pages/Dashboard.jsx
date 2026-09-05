@@ -13,14 +13,25 @@ function ProgressBar({ value, className = "" }) {
   );
 }
 
+const READINESS_LABELS = {
+  academics: "Academics",
+  activities: "Activities",
+  essays: "Essays",
+  major_preparation: "Major Preparation",
+  application_tasks: "Application Tasks",
+  financial_preparation: "Financial Preparation",
+};
+
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [recs, setRecs] = useState([]);
+  const [ready, setReady] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     api("/api/dashboard").then(setData).catch((e) => setError(e.message));
     api("/api/recommendations").then(setRecs).catch(() => {});
+    api("/api/readiness").then(setReady).catch(() => {});
   }, []);
 
   if (error) return <p className="text-red-600">{error}</p>;
@@ -32,6 +43,44 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
+
+      {ready && (
+        <div className="rounded-xl bg-compass-900 p-5 text-white shadow-sm">
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-300">
+                Application Readiness
+              </p>
+              <p className="mt-1 text-5xl font-bold">
+                {ready.overall}
+                <span className="text-2xl font-normal text-slate-400"> / 100</span>
+              </p>
+            </div>
+            <div className="grid min-w-56 flex-1 grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              {Object.entries(READINESS_LABELS).map(([key, label]) => (
+                <div key={key}>
+                  <div className="flex justify-between gap-2 text-xs text-slate-300">
+                    <span className="truncate">{label}</span>
+                    <span className="shrink-0 font-semibold text-white">{ready.components[key]}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
+                    <div
+                      className="h-full rounded-full bg-sky-400"
+                      style={{ width: `${ready.components[key]}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-slate-300">
+            Highest-impact improvement:{" "}
+            <Link to={ready.highest_impact.link} className="font-medium text-sky-300 hover:underline">
+              {ready.highest_impact.action}
+            </Link>
+          </p>
+        </div>
+      )}
 
       {data.next_action && (
         <div className="rounded-xl border-l-4 border-compass-500 bg-compass-50 p-4">

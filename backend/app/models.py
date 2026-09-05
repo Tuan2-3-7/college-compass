@@ -136,6 +136,40 @@ class Application(Base):
     tasks: Mapped[list["Task"]] = relationship(back_populates="application", cascade="all, delete-orphan")
 
 
+class Scholarship(Base):
+    __tablename__ = "scholarships"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True)
+    provider: Mapped[str] = mapped_column(String(255), default="")
+    amount_max: Mapped[int | None] = mapped_column(Integer, nullable=True)  # USD, per award
+    renewable: Mapped[bool] = mapped_column(Boolean, default=False)
+    eligibility: Mapped[str] = mapped_column(String(20), default="both")  # domestic|international|both
+    min_gpa: Mapped[float | None] = mapped_column(Float, nullable=True)
+    majors: Mapped[list] = mapped_column(JSON, default=list)  # empty = any major
+    deadline: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "MM-DD", recurs yearly
+    description: Mapped[str] = mapped_column(Text, default="")
+    data_source: Mapped[str] = mapped_column(
+        String(255), default="sample_seed_v1 (illustrative only - verify before relying on it)"
+    )
+    last_verified: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (UniqueConstraint("user_id", "dedupe_key", name="uq_user_dedupe"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    dedupe_key: Mapped[str] = mapped_column(String(100))
+    category: Mapped[str] = mapped_column(String(30), default="deadline")
+    title: Mapped[str] = mapped_column(String(255))
+    body: Mapped[str] = mapped_column(Text, default="")
+    link: Mapped[str] = mapped_column(String(100), default="")
+    read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 ESSAY_TYPES = ["personal_statement", "supplemental", "scholarship", "other"]
 
 

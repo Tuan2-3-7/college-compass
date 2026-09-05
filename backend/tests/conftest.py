@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.data.scholarships import seed_scholarships
 from app.database import Base, get_db
 from app.main import app
 from app.seed import seed_universities
@@ -25,6 +26,7 @@ def client():
     Base.metadata.create_all(bind=engine)
     db = TestingSession()
     seed_universities(db)
+    seed_scholarships(db)
     db.close()
 
     def override_get_db():

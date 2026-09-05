@@ -56,11 +56,30 @@ refusal handling and server-side fallbacks) that activates automatically when
   across deadlines, checklist state, competitiveness subscores, essay scores, and
   list balance — surfaced on the dashboard as "Recommended next steps".
 
+## Phase 4 (Advanced) ✅
+
+- **Financial-Aid & Scholarship Planner**: personalized forms (FAFSA/CSS for
+  domestic; CSS/ISFAA + proof of funds for international), per-school aid picture,
+  and scholarship matching by student type, GPA, and major — with one-click
+  deadline tracking into the task system. 13 **sample** scholarships seeded
+  (unverified by design, like the university seed).
+- **International Student Center**: the full post-application pathway
+  (application → admission → financial docs → I-20 → SEVIS → F-1 visa → housing →
+  arrival) as a timeline with the current stage inferred from application state,
+  plain-language term explanations, and action items per stage.
+- **University Comparison**: side-by-side 2-4 schools with 16 aligned attributes
+  plus per-user fit (Reach/Target/Likely) and personal deadlines.
+- **Application Readiness Score**: one dashboard number across six components
+  (academics, activities, essays, major prep, tasks, financial prep) with the
+  highest-impact improvement — explicitly *not* an admission prediction.
+- **Notifications**: idempotent deadline reminders (due-soon and overdue) with an
+  unread-count bell in the header.
+
 ## Stack
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy 2, SQLite (swap `DATABASE_URL` for Postgres)
 - **Frontend**: React 18, Vite, Tailwind CSS
-- **Tests**: pytest (70 tests, incl. the spec's edge cases)
+- **Tests**: pytest (87 tests, incl. the spec's edge cases)
 
 ## Run it
 
