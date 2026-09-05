@@ -7,11 +7,53 @@ from conftest import find_university, set_profile
 
 # ---------------- scholarships & financial aid ----------------
 
-def test_scholarships_seeded_and_labeled(client):
+def test_scholarships_seeded_and_honestly_labeled(client):
+    """Every scholarship must declare its provenance: verified entries carry a
+    date and the sponsor's own URL, unverified ones are marked as samples."""
     scholarships = client.get("/api/scholarships").json()
     assert len(scholarships) >= 10
-    assert all("sample" in s["data_source"] for s in scholarships)
-    assert all(s["last_verified"] is None for s in scholarships)
+
+    verified = [s for s in scholarships if s["last_verified"]]
+    unverified = [s for s in scholarships if not s["last_verified"]]
+    assert verified, "expected some scholarships checked against the sponsor's site"
+
+    for s in verified:
+        assert s["source_url"].startswith("https://"), s["name"]
+        assert "sample" not in s["data_source"].lower(), s["name"]
+    for s in unverified:
+        assert "sample" in s["data_source"].lower(), s["name"]
+
+
+def test_verified_scholarship_details_match_the_source(client):
+    """Guards against silent drift in the curated figures."""
+    by_name = {s["name"]: s for s in client.get("/api/scholarships").json()}
+
+    coke = by_name["Coca-Cola Scholars Program"]
+    assert coke["amount_max"] == 20000
+    assert coke["deadline"] == "09-30"
+    assert coke["min_gpa"] == 3.0
+    assert coke["eligibility"] == "domestic"
+
+    welcome = by_name["#YouAreWelcomeHere Scholarship"]
+    assert welcome["eligibility"] == "international"
+    assert welcome["renewable"] is True
+    assert welcome["deadline"] is None          # varies by institution
+    assert welcome["deadline_note"]             # ...and says so
+
+
+def test_reseeding_is_idempotent_and_prunes(client):
+    """The seed file is the source of truth for this table."""
+    from app.data.scholarships import SAMPLE_SCHOLARSHIPS, seed_scholarships
+    from conftest import TestingSession
+
+    db = TestingSession()
+    try:
+        seed_scholarships(db)
+        seed_scholarships(db)
+        from app.models import Scholarship
+        assert db.query(Scholarship).count() == len(SAMPLE_SCHOLARSHIPS)
+    finally:
+        db.close()
 
 
 def test_scholarship_eligibility_filter(client):

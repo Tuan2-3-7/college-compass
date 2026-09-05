@@ -20,7 +20,9 @@ def _scholarship_dict(s: Scholarship) -> dict:
         "min_gpa": s.min_gpa,
         "majors": s.majors,
         "deadline": s.deadline,
+        "deadline_note": s.deadline_note,
         "description": s.description,
+        "source_url": s.source_url,
         "data_source": s.data_source,
         "last_verified": s.last_verified.isoformat() if s.last_verified else None,
     }
@@ -140,7 +142,8 @@ def financial_aid_plan(user: User = Depends(get_current_user), db: Session = Dep
             for t in aid_tasks
         ],
         "disclaimer": (
-            "Scholarship and aid details are sample data - unverified. Confirm amounts, "
-            "deadlines, and eligibility on each provider's official site."
+            "Each scholarship shows whether it was checked against the sponsor's own site "
+            "and when. Amounts and deadlines change every year, so confirm on the official "
+            "page before applying - especially anything marked unverified."
         ),
     }

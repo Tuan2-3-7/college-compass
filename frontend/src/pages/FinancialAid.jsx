@@ -128,16 +128,38 @@ export default function FinancialAid() {
             {plan.scholarships.map((s) => (
               <div key={s.id} className="rounded-lg border border-slate-100 p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium">{s.name}</p>
+                  <p className="font-medium">
+                    {s.name}
+                    {s.last_verified ? (
+                      <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">
+                        VERIFIED {s.last_verified}
+                      </span>
+                    ) : (
+                      <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                        UNVERIFIED
+                      </span>
+                    )}
+                  </p>
                   <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
                     {money(s.amount_max)}{s.renewable ? "/yr" : ""}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500">{s.provider}</p>
                 <p className="mt-1 text-sm text-slate-600">{s.description}</p>
+                {s.deadline_note && (
+                  <p className="mt-1 text-xs text-slate-400">{s.deadline_note}</p>
+                )}
+                {s.source_url && (
+                  <a href={s.source_url} target="_blank" rel="noopener noreferrer"
+                    className="mt-1 inline-block text-xs text-compass-600 hover:underline">
+                    Official page →
+                  </a>
+                )}
                 <div className="mt-2 flex items-center justify-between text-xs">
                   <span className="text-slate-500">
-                    {s.deadline ? `Deadline ~${s.deadline} (verify)` : "Deadline varies"}
+                    {s.deadline
+                      ? `Deadline ${s.deadline}${s.last_verified ? "" : " (verify)"}`
+                      : "Deadline varies"}
                     {s.min_gpa ? ` · GPA ${s.min_gpa}+` : ""}
                   </span>
                   {added[s.id] ? (

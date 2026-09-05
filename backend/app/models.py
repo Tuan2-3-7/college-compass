@@ -155,7 +155,9 @@ class Scholarship(Base):
     min_gpa: Mapped[float | None] = mapped_column(Float, nullable=True)
     majors: Mapped[list] = mapped_column(JSON, default=list)  # empty = any major
     deadline: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "MM-DD", recurs yearly
+    deadline_note: Mapped[str] = mapped_column(String(255), default="")
     description: Mapped[str] = mapped_column(Text, default="")
+    source_url: Mapped[str] = mapped_column(String(500), default="")
     data_source: Mapped[str] = mapped_column(
         String(255), default="sample_seed_v1 (illustrative only - verify before relying on it)"
     )
