@@ -4,7 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, SessionLocal, engine
+from .config import cors_origin_list, settings, validate_for_production
 from .data.scholarships import seed_scholarships
+from .ratelimit import rate_limit_middleware
 from .routers import (
     analyzer_routes,
     application_routes,
@@ -26,6 +28,13 @@ from .seed import seed_universities
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.environment == "production":
+        problems = validate_for_production()
+        if problems:
+            raise RuntimeError(
+                "Refusing to start in production with insecure configuration:\n  - "
+                + "\n  - ".join(problems)
+            )
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
@@ -47,12 +56,15 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.middleware("http")(rate_limit_middleware)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=cors_origin_list(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Total-Count"],
 )
 
 app.include_router(auth_routes.router)

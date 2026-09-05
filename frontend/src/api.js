@@ -1,5 +1,14 @@
 const TOKEN_KEY = "cc_token";
 
+// In dev, Vite proxies /api to the backend so relative paths work. Deployed,
+// the frontend and API are on different origins, so VITE_API_BASE must point
+// at the backend (set it at build time on Cloudflare Pages / Vercel).
+const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
+
+export function apiUrl(path) {
+  return API_BASE ? `${API_BASE}${path}` : path;
+}
+
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -14,7 +23,7 @@ export async function api(path, { method = "GET", body } = {}) {
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const resp = await fetch(path, {
+  const resp = await fetch(apiUrl(path), {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),

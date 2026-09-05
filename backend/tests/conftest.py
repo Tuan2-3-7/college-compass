@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app import ratelimit
 from app.data.scholarships import seed_scholarships
 from app.database import Base, get_db
 from app.main import app
@@ -24,6 +25,9 @@ TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 @pytest.fixture()
 def client():
     Base.metadata.create_all(bind=engine)
+    # every test drives the API from the same client IP, so without this the
+    # suite trips its own rate limiter after ~10 registrations
+    ratelimit.reset()
     db = TestingSession()
     seed_universities(db)
     seed_scholarships(db)

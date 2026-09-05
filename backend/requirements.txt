@@ -1,14 +1,20 @@
 fastapi>=0.115
 uvicorn[standard]>=0.30
 sqlalchemy>=2.0
+alembic>=1.13
 pydantic>=2.7
 pydantic-settings>=2.3
 python-dotenv>=1.0
 passlib>=1.7.4
 PyJWT>=2.8
 httpx>=0.27
-pytest>=8.0
 email-validator>=2.0
 
-# Phase 3 real-AI mode: uncomment and set ANTHROPIC_API_KEY in .env
+# Postgres driver - required for deployment (SQLite is dev-only)
+psycopg[binary]>=3.1
+
+# Dev/test only
+pytest>=8.0
+
+# Optional: only needed for LLM_PROVIDER=anthropic
 # anthropic>=1.0
