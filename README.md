@@ -38,11 +38,20 @@ Full scope: [docs/SPEC.md](docs/SPEC.md) · Build phases: Foundation → Intelli
 
 ## Phase 3 (AI) ✅ — currently in mock mode
 
-All AI features run behind one provider interface (`backend/app/services/llm.py`):
-a **deterministic mock** (active now — free, offline, labeled "demo mode" in the UI)
-and a **real Claude adapter** (model `claude-opus-5`, official `anthropic` SDK, with
-refusal handling and server-side fallbacks) that activates automatically when
-`ANTHROPIC_API_KEY` is set in `backend/.env` (and `pip install anthropic` is run).
+All AI features run behind one provider interface (`backend/app/services/llm.py`).
+Set `LLM_PROVIDER` (or leave it on `auto`, which picks the best one configured):
+
+| Provider | Cost | Quality | Use for |
+|---|---|---|---|
+| `mock` | free | pattern-matching, no reading | tests, CI, offline dev |
+| `ollama` | free | good | local development (can't serve a deployed app) |
+| `openai_compat` | free tier → pennies | good | **deployment on a budget** (Groq, Together, OpenRouter) |
+| `anthropic` | ~6¢/analysis | best | when feedback quality matters most |
+
+`auto` resolves anthropic → openai_compat → mock, so CI never needs a key and
+production upgrades itself the moment one is set. Weaker models are handled with
+brace-balanced JSON extraction, field coercion, and one automatic retry — the API
+contract holds regardless of which provider answers.
 
 - **Essay Coach**: essays → versioned drafts → analysis. Seven dimension scores
   (prompt alignment, storytelling, personal voice, specificity, reflection,

@@ -432,19 +432,213 @@ class ClaudeLLM:
         return {"reply": reply, "provider": self.name}
 
 
+def _first_balanced_object(text: str) -> str | None:
+    """Return the first brace-balanced JSON object in `text`, ignoring anything
+    after it. A greedy /\\{.*\\}/ would swallow trailing prose or a second
+    object, which is exactly what small models emit."""
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth, in_string, escaped = 0, False, False
+    for i in range(start, len(text)):
+        char = text[i]
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    return None
+
+
+def extract_json(text: str) -> dict:
+    """Parse a JSON object out of a model response.
+
+    Small open models wrap JSON in prose or fences, append commentary, or emit
+    a second partial object, so try increasingly forgiving strategies.
+    """
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if fenced:
+        try:
+            return json.loads(fenced.group(1))
+        except json.JSONDecodeError:
+            pass
+    candidate = _first_balanced_object(text)
+    if candidate:
+        return json.loads(candidate)
+    raise RuntimeError("Model response contained no JSON object")
+
+
+ESSAY_DIMENSIONS = [
+    "prompt_alignment", "storytelling", "personal_voice",
+    "specificity", "reflection", "structure", "grammar",
+]
+
+
+def coerce_feedback(data: dict, content: str, provider: str) -> dict:
+    """Fill gaps a weaker model may leave, so the API contract always holds."""
+    scores = {k: int(data.get("scores", {}).get(k, 50) or 50) for k in ESSAY_DIMENSIONS}
+    scores = {k: max(0, min(100, v)) for k, v in scores.items()}
+    overall = data.get("overall_score")
+    if not isinstance(overall, (int, float)):
+        overall = round(sum(scores.values()) / len(scores))
+    flags = data.get("flags") or {}
+    flags.setdefault("word_count", len(re.findall(r"[a-zA-Z']+", content)))
+    flags.setdefault("cliches", [])
+    flags.setdefault("repeated_words", [])
+    return {
+        "overall_score": max(0, min(100, int(overall))),
+        "scores": scores,
+        "paragraph_feedback": data.get("paragraph_feedback") or [],
+        "weaknesses": data.get("weaknesses") or [],
+        "suggestions": data.get("suggestions") or [],
+        "questions": data.get("questions") or [],
+        "flags": flags,
+        "provider": provider,
+    }
+
+
+class OpenAICompatLLM:
+    """Adapter for any OpenAI-compatible /chat/completions endpoint.
+
+    Covers Groq, Together, OpenRouter, DeepInfra (hosted open models - free
+    tiers available, no server to run) and a local Ollama, which speaks the
+    same protocol. Uses httpx directly so no extra SDK dependency is needed.
+    """
+
+    def __init__(self, base_url: str, api_key: str, model: str, name: str):
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.model = model
+        self.name = name
+
+    def _chat(self, system: str, messages: list[dict], max_tokens: int = 2048) -> str:
+        import httpx
+
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        payload = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "system", "content": system}, *messages],
+        }
+        try:
+            resp = httpx.post(
+                f"{self.base_url}/chat/completions", json=payload, headers=headers, timeout=120
+            )
+        except httpx.HTTPError as exc:
+            raise RuntimeError(f"Could not reach the AI provider: {exc}") from exc
+        if resp.status_code == 429:
+            raise RuntimeError("AI provider rate limit reached - try again shortly.")
+        if resp.status_code >= 400:
+            raise RuntimeError(f"AI provider error {resp.status_code}: {resp.text[:200]}")
+        return resp.json()["choices"][0]["message"]["content"]
+
+    def analyze_essay(self, prompt: str, content: str, word_limit: int | None = None) -> dict:
+        user = (
+            f"Essay prompt:\n{prompt or '(no prompt given)'}\n\n"
+            + (f"Word limit: {word_limit}\n\n" if word_limit else "")
+            + f"Student draft:\n{content}\n\nRespond with ONLY the JSON object."
+        )
+        messages = [{"role": "user", "content": user}]
+        # Small models emit malformed JSON often enough to need one retry; a
+        # single failure should not cost the student their analysis.
+        for attempt in range(2):
+            text = self._chat(ClaudeLLM.ESSAY_SYSTEM, messages, max_tokens=3000)
+            try:
+                return coerce_feedback(extract_json(text), content, self.name)
+            except (json.JSONDecodeError, RuntimeError, KeyError, TypeError):
+                if attempt == 1:
+                    raise RuntimeError(
+                        "The AI returned malformed feedback twice. Try again, or "
+                        "switch to a stronger model."
+                    )
+                messages = [
+                    {"role": "user", "content": user},
+                    {"role": "assistant", "content": text[:500]},
+                    {"role": "user", "content": (
+                        "That was not valid JSON. Reply with ONLY a single valid JSON "
+                        "object matching the schema - no prose, no markdown fences."
+                    )},
+                ]
+
+    def tutor_reply(self, message: str, history: list[dict] | None = None) -> dict:
+        messages = [
+            {"role": m["role"], "content": m["content"]} for m in (history or [])[-10:]
+        ]
+        messages.append({"role": "user", "content": message})
+        return {
+            "reply": self._chat(ClaudeLLM.TUTOR_SYSTEM, messages),
+            "provider": self.name,
+        }
+
+
 _provider = None
 
 
+def _build_provider():
+    """Resolve the configured provider, best-quality-first when set to auto."""
+    choice = (settings.llm_provider or "auto").lower()
+
+    def anthropic():
+        if not settings.anthropic_api_key:
+            return None
+        try:
+            return ClaudeLLM()
+        except ImportError:
+            return None  # key set but SDK missing: pip install anthropic
+
+    def openai_compat():
+        if not (settings.openai_compat_base_url and settings.openai_compat_api_key):
+            return None
+        return OpenAICompatLLM(
+            settings.openai_compat_base_url, settings.openai_compat_api_key,
+            settings.openai_compat_model, "openai_compat",
+        )
+
+    def ollama():
+        return OpenAICompatLLM(
+            settings.ollama_base_url, "ollama", settings.ollama_model, "ollama"
+        )
+
+    if choice == "mock":
+        return MockLLM()
+    if choice == "anthropic":
+        return anthropic() or MockLLM()
+    if choice == "openai_compat":
+        return openai_compat() or MockLLM()
+    if choice == "ollama":
+        return ollama()
+    # auto: best configured provider wins, mock is the always-available floor
+    return anthropic() or openai_compat() or MockLLM()
+
+
 def get_llm():
-    """Return the active provider; Claude when a key is configured, else mock."""
+    """Return the active AI provider (cached)."""
     global _provider
     if _provider is None:
-        if settings.anthropic_api_key:
-            try:
-                _provider = ClaudeLLM()
-            except ImportError:
-                # key set but SDK missing: pip install anthropic
-                _provider = MockLLM()
-        else:
-            _provider = MockLLM()
+        _provider = _build_provider()
     return _provider
+
+
+def reset_llm_cache() -> None:
+    """Drop the cached provider - used by tests that change settings."""
+    global _provider
+    _provider = None
