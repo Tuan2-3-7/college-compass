@@ -27,3 +27,6 @@ Thumbs.db
 # frontend
 node_modules/
 dist/
+
+# generated secret, never commit
+JWT_SECRET_DO_NOT_COMMIT.txt

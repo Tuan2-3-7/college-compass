@@ -5,7 +5,7 @@ A stack that costs **$0/month** and has no forced cold-start penalty.
 | Layer | Service | Why |
 |---|---|---|
 | Frontend | **Cloudflare Pages** | Free, fast globally, custom domains included |
-| Backend | **Google Cloud Run** | Scales to zero, ~1-3s cold start, 2M requests/month free |
+| Backend | **Google Cloud Run** | Scales to zero, ~1-3s cold start, 2M requests/month free, deploys from GitHub |
 | Database | **Neon** Postgres | Free tier that does **not** expire |
 | AI | **Groq** free tier | Hosted Llama, OpenAI-compatible, nothing to self-host |
 
@@ -29,25 +29,38 @@ driver prefix for psycopg 3:
 Without this the app refuses to start in production - the dev default is
 public in the source, so anyone could forge a login for any student.
 
-## 3. Backend (Cloud Run)
+## 3. Backend (Cloud Run) - from the browser, no local CLI
 
-From `backend/`:
+Cloud Run builds straight from GitHub, so neither gcloud nor Docker needs to
+be installed locally.
 
-    gcloud run deploy collegecompass-api \
-      --source . \
-      --region us-central1 \
-      --allow-unauthenticated \
-      --set-env-vars "ENVIRONMENT=production" \
-      --set-env-vars "DATABASE_URL=postgresql+psycopg://USER:PW@HOST/DB" \
-      --set-env-vars "JWT_SECRET=<the secret from step 2>" \
-      --set-env-vars "CORS_ORIGINS=https://<your-pages-domain>" \
-      --set-env-vars "LLM_PROVIDER=openai_compat" \
-      --set-env-vars "OPENAI_COMPAT_BASE_URL=https://api.groq.com/openai/v1" \
-      --set-env-vars "OPENAI_COMPAT_API_KEY=<groq key>" \
-      --set-env-vars "OPENAI_COMPAT_MODEL=llama-3.1-8b-instant"
+1. console.cloud.google.com -> create or pick a project (billing must be
+   enabled; the free tier still applies)
+2. **Cloud Run** -> **Deploy container** -> **Service**
+3. Choose **Continuously deploy from a repository** -> **Set up with Cloud
+   Build** -> authorise GitHub -> pick the repo, branch `main`
+4. Build type **Dockerfile**, source location `/backend/Dockerfile`
+5. Region: **us-east5** (Columbus) to sit beside a Neon `us-east-2` database
+6. Authentication: **Allow unauthenticated invocations**
+7. Under **Container -> Variables & Secrets**, add:
+
+   | Name | Value |
+   |---|---|
+   | `ENVIRONMENT` | `production` |
+   | `DATABASE_URL` | the Neon string, prefix swapped to `postgresql+psycopg://` |
+   | `JWT_SECRET` | the secret from step 2 |
+   | `CORS_ORIGINS` | your Pages URL (fill in after step 4; use a placeholder first) |
+   | `LLM_PROVIDER` | `openai_compat` |
+   | `OPENAI_COMPAT_BASE_URL` | `https://api.groq.com/openai/v1` |
+   | `OPENAI_COMPAT_API_KEY` | the Groq key |
+   | `OPENAI_COMPAT_MODEL` | `llama-3.1-8b-instant` |
 
 The container runs `alembic upgrade head` before serving, so the schema is
-created on first deploy and migrated on later ones.
+created on first deploy and migrated on later ones. If the service fails to
+start, read the logs: the production guard refuses to boot on a dev JWT
+secret, a SQLite URL, or a localhost CORS origin, and says which.
+
+Prefer the CLI? `gcloud run deploy --source backend/` does the same thing.
 
 To use Claude instead, swap the last four vars for:
 
