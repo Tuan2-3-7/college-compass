@@ -4,7 +4,14 @@ from datetime import date
 
 from conftest import TestingSession
 
-from app.ingestion.scorecard import DATA_SOURCE, normalize_name, transform, upsert
+from app.ingestion.scorecard import (
+    DATA_SOURCE,
+    name_variants,
+    normalize_name,
+    relink_curated,
+    transform,
+    upsert,
+)
 from app.models import University
 
 
@@ -48,6 +55,20 @@ def test_normalize_name_matches_scorecard_variants():
         "arizona state university"
     assert normalize_name("University of Washington-Seattle Campus") == \
         "university of washington"
+    # Scorecard prefixes some flagships with "The"
+    assert normalize_name("The University of Alabama") == "university of alabama"
+    assert normalize_name("The University of Texas at Austin") == \
+        normalize_name("University of Texas at Austin")
+
+
+def test_name_variants_strips_campus_city():
+    """Scorecard appends the campus city to some flagship names."""
+    variants = name_variants("University of Michigan-Ann Arbor", "Ann Arbor")
+    assert "university of michigan" in variants
+    # no city suffix -> just the base form
+    assert name_variants("Purdue University", "West Lafayette") == ["purdue university"]
+    # never strip the whole name away
+    assert name_variants("Boston", "Boston") == ["boston"]
 
 
 def test_transform_maps_fields():
@@ -123,5 +144,124 @@ def test_upsert_updates_curated_row_and_preserves_curated_fields(client):
             "school.ownership": 1,
         }))])
         assert result2["updated"] == 1 and result2["inserted"] == 0
+    finally:
+        db.close()
+
+
+def test_distinct_schools_sharing_a_name_are_disambiguated(client):
+    """There really are two 'Anderson University' (IN and SC) - neither may
+    overwrite the other, and `name` stays unique."""
+    db = TestingSession()
+    try:
+        rows = [
+            transform(_fake_row(**{
+                "id": 150066, "school.name": "Anderson University",
+                "school.city": "Anderson", "school.state": "IN",
+                "latest.admissions.admission_rate.overall": 0.79,
+            })),
+            transform(_fake_row(**{
+                "id": 217925, "school.name": "Anderson University",
+                "school.city": "Anderson", "school.state": "SC",
+                "latest.admissions.admission_rate.overall": 0.55,
+            })),
+        ]
+        result = upsert(db, rows)
+        assert result["inserted"] == 2 and result["updated"] == 0
+
+        indiana = db.query(University).filter(University.ipeds_unitid == 150066).one()
+        carolina = db.query(University).filter(University.ipeds_unitid == 217925).one()
+        assert indiana.name == "Anderson University"
+        assert carolina.name == "Anderson University (SC)"
+        assert indiana.acceptance_rate == 0.79   # not clobbered by the SC row
+        assert carolina.acceptance_rate == 0.55
+
+        # re-running matches both by unitid - no new rows, no renames
+        again = upsert(db, rows)
+        assert again == {"updated": 2, "inserted": 0, "fetched": 2}
+        assert db.query(University).filter(University.name.like("Anderson%")).count() == 2
+    finally:
+        db.close()
+
+
+def _insert_raw_twin(db, **fields) -> University:
+    """Insert a Scorecard row directly, bypassing upsert's name matching - i.e.
+    the duplicate state an older, less careful sync left behind."""
+    twin = University(**fields)
+    db.add(twin)
+    db.commit()
+    return twin
+
+
+def test_upsert_matches_campus_suffixed_name_without_duplicating(client):
+    """The matcher itself handles 'University of Michigan-Ann Arbor'."""
+    db = TestingSession()
+    try:
+        result = upsert(db, [transform(_fake_row(**{
+            "id": 170976, "school.name": "University of Michigan-Ann Arbor",
+            "school.city": "Ann Arbor", "school.state": "MI", "school.ownership": 1,
+        }))])
+        assert result["updated"] == 1 and result["inserted"] == 0
+        assert db.query(University).filter(
+            University.name.like("University of Michigan%")).count() == 1
+    finally:
+        db.close()
+
+
+def test_relink_merges_campus_suffixed_twin_into_curated_row(client):
+    """Repair pass: a curated 'University of Michigan' absorbs an already-inserted
+    'University of Michigan-Ann Arbor' duplicate from an older sync."""
+    db = TestingSession()
+    try:
+        curated = db.query(University).filter(University.name == "University of Michigan").one()
+        curated_id, curated_deadlines = curated.id, dict(curated.deadlines)
+        curated_supp = curated.supplemental_essay_count
+        assert curated.ipeds_unitid is None
+
+        _insert_raw_twin(
+            db, ipeds_unitid=170976, name="University of Michigan-Ann Arbor",
+            city="Ann Arbor", state="MI", control="public",
+            acceptance_rate=0.177, majors=["computer_science"],
+            links={"website": "https://umich.edu/"}, last_verified=date.today(),
+        )
+        assert db.query(University).filter(University.name.like("University of Michigan%")).count() == 2
+
+        merged = relink_curated(db)
+        assert ("University of Michigan", "University of Michigan-Ann Arbor") in merged
+
+        rows = db.query(University).filter(University.name.like("University of Michigan%")).all()
+        assert len(rows) == 1
+        survivor = rows[0]
+        assert survivor.id == curated_id                    # applications stay valid
+        assert survivor.name == "University of Michigan"
+        assert survivor.ipeds_unitid == 170976              # real stats absorbed
+        assert survivor.acceptance_rate == 0.177
+        assert survivor.deadlines == curated_deadlines      # curated fields kept
+        assert survivor.supplemental_essay_count == curated_supp
+
+        assert relink_curated(db) == []  # idempotent
+    finally:
+        db.close()
+
+
+def test_relink_never_drops_a_row_with_applications(client, auth_headers):
+    """If a student already applied to the Scorecard row, leave both alone."""
+    db = TestingSession()
+    try:
+        twin = _insert_raw_twin(
+            db, ipeds_unitid=170976, name="University of Michigan-Ann Arbor",
+            city="Ann Arbor", state="MI", control="public", last_verified=date.today(),
+        )
+        twin_id = twin.id
+    finally:
+        db.close()
+
+    resp = client.post("/api/applications", headers=auth_headers,
+                       json={"university_id": twin_id})
+    assert resp.status_code == 201
+
+    db = TestingSession()
+    try:
+        assert relink_curated(db) == []
+        assert db.query(University).filter(University.ipeds_unitid == 170976).count() == 1
     finally:
         db.close()

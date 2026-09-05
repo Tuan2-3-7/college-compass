@@ -62,5 +62,10 @@ def compare(
 
     return {
         "universities": columns,
-        "disclaimer": "Sample data - unverified. Fit labels are heuristic estimates, not predictions.",
+        "disclaimer": (
+            "Statistics come from the US Dept. of Education College Scorecard; deadlines, "
+            "essay counts, and aid details may still be unverified sample data - each school's "
+            "source and verification date is shown in the Finder. Fit labels are heuristic "
+            "estimates, not predictions."
+        ),
     }

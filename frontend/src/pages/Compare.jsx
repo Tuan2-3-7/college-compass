@@ -16,18 +16,32 @@ function pct(n) {
 }
 
 export default function Compare() {
-  const [universities, setUniversities] = useState([]);
+  const [query, setQuery] = useState("");
+  const [matches, setMatches] = useState([]);
   const [picked, setPicked] = useState([]);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api("/api/universities").then(setUniversities);
     // preselect the user's list (up to 4)
     api("/api/applications").then((apps) =>
       setPicked(apps.slice(0, 4).map((a) => a.university_id))
     );
   }, []);
+
+  // 1,500+ schools: search instead of listing them all
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setMatches([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      api(`/api/universities?q=${encodeURIComponent(query)}&limit=8`)
+        .then(setMatches)
+        .catch(() => setMatches([]));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     setResult(null);
@@ -42,6 +56,12 @@ export default function Compare() {
     setPicked((p) =>
       p.includes(id) ? p.filter((x) => x !== id) : p.length < 4 ? [...p, id] : p
     );
+  }
+
+  function addAndClear(id) {
+    toggle(id);
+    setQuery("");
+    setMatches([]);
   }
 
   const rows = [
@@ -73,26 +93,56 @@ export default function Compare() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Compare Universities</h1>
-      <p className="text-sm text-slate-500">Pick 2-4 schools. Your list is preselected.</p>
+      <p className="text-sm text-slate-500">
+        Compare 2–4 schools. Your college list is preselected; search to add others.
+      </p>
 
-      <div className="flex flex-wrap gap-2">
-        {universities.map((u) => (
-          <button
-            key={u.id}
-            onClick={() => toggle(u.id)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-              picked.includes(u.id)
-                ? "bg-compass-600 text-white"
-                : "bg-white text-slate-600 shadow-sm hover:bg-slate-100"
-            }`}
-          >
-            {u.name}
-          </button>
-        ))}
+      {/* selected chips */}
+      {result && (
+        <div className="flex flex-wrap gap-2">
+          {result.universities.map((u) => (
+            <button
+              key={u.id}
+              onClick={() => toggle(u.id)}
+              className="rounded-full bg-compass-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-compass-700"
+              title="Remove from comparison"
+            >
+              {u.name} ✕
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="relative max-w-md">
+        <input
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-compass-500 focus:outline-none"
+          placeholder={picked.length >= 4 ? "Remove one to add another" : "Search to add a school…"}
+          value={query}
+          disabled={picked.length >= 4}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {matches.length > 0 && (
+          <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg bg-white shadow-lg">
+            {matches.map((u) => (
+              <li key={u.id}>
+                <button
+                  onClick={() => addAndClear(u.id)}
+                  disabled={picked.includes(u.id)}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-40"
+                >
+                  {u.name}
+                  <span className="text-xs text-slate-400"> · {u.city}, {u.state}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {picked.length < 2 && <p className="text-sm text-slate-400">Select at least two schools.</p>}
+      {picked.length < 2 && (
+        <p className="text-sm text-slate-400">Select at least two schools to compare.</p>
+      )}
 
       {result && (
         <div className="overflow-x-auto rounded-xl bg-white shadow-sm">

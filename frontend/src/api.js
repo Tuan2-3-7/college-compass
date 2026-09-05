@@ -28,6 +28,10 @@ export async function api(path, { method = "GET", body } = {}) {
   if (resp.status === 204) return null;
 
   const data = await resp.json().catch(() => null);
+  if (resp.ok && Array.isArray(data)) {
+    const total = resp.headers.get("X-Total-Count");
+    if (total !== null) data.totalCount = Number(total);
+  }
   if (!resp.ok) {
     const detail = data && data.detail;
     const msg =

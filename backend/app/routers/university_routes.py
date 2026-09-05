@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+import re
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -22,9 +23,79 @@ SIZE_BUCKETS = {
     "large": (15000, 1_000_000),
 }
 
+# Students search by the name they say out loud, which is often nowhere in the
+# official name ("MIT", "UCLA", "Caltech"). Two mechanisms cover this:
+# generated initials handle the regular cases, aliases the irregular ones.
+_SKIP_WORDS = {"of", "the", "at", "and", "in", "for", "a", "college", "campus"}
+_WORD_SPLIT = re.compile(r"[\s\-,.&]+")
+
+NICKNAMES = {
+    "caltech": "california institute of technology",
+    "penn": "university of pennsylvania",
+    "upenn": "university of pennsylvania",
+    "cal": "university of california-berkeley",
+    "ucb": "university of california-berkeley",
+    "gatech": "georgia institute of technology",
+    "vtech": "virginia polytechnic institute",
+    "vt": "virginia polytechnic institute",
+    "ut austin": "university of texas at austin",
+    "umich": "university of michigan",
+    "uw": "university of washington",
+    "bu": "boston university",
+    "bc": "boston college",
+    "usc": "university of southern california",
+    "asu": "arizona state university",
+    "psu": "pennsylvania state university",
+    "osu": "ohio state university",
+    "cmu": "carnegie mellon university",
+    "rpi": "rensselaer polytechnic institute",
+    "nyu": "new york university",
+    "ucla": "university of california-los angeles",
+    "mit": "massachusetts institute of technology",
+    # multi-word spoken names that appear nowhere in the official name
+    "georgia tech": "georgia institute of technology",
+    "virginia tech": "virginia polytechnic institute",
+    "ga tech": "georgia institute of technology",
+    "uc berkeley": "university of california-berkeley",
+    "uc la": "university of california-los angeles",
+    "texas a&m": "texas a & m university",
+    "mass institute of technology": "massachusetts institute of technology",
+}
+
+
+def name_initials(name: str) -> str:
+    """"University of California-Los Angeles" -> "ucla" """
+    words = [w for w in _WORD_SPLIT.split(name.lower()) if w and w not in _SKIP_WORDS]
+    return "".join(w[0] for w in words)
+
+
+def match_rank(name: str, q: str) -> int | None:
+    """Relevance of `name` for query `q`; lower is better, None means no match.
+
+    Ranking matters at real scale: a bare substring search for "MIT" puts
+    "Johnson C Smith University" ahead of the school the student meant, because
+    "Smith" contains "mit".
+    """
+    low, needle = name.lower(), q.lower().strip()
+    if not needle:
+        return None
+    if low == needle:
+        return 0
+    expanded = NICKNAMES.get(needle)
+    if expanded and expanded in low:
+        return 1
+    if low.startswith(needle):
+        return 2
+    if 2 <= len(needle) <= 5 and needle.isalpha() and name_initials(name).startswith(needle):
+        return 3
+    if needle in low:
+        return 4
+    return None
+
 
 @router.get("", response_model=list[UniversityOut])
 def search(
+    response: Response,
     db: Session = Depends(get_db),
     q: str | None = Query(default=None, description="Name search"),
     major: str | None = None,
@@ -36,10 +107,10 @@ def search(
     intl_aid: bool | None = Query(default=None, description="Only schools offering intl aid"),
     test_policy: str | None = None,
     sort: str = Query(default="name", pattern="^(name|acceptance_rate|cost)$"),
+    limit: int = Query(default=50, ge=1, le=200, description="Max results per page"),
+    offset: int = Query(default=0, ge=0),
 ):
     query = db.query(University)
-    if q:
-        query = query.filter(University.name.ilike(f"%{q}%"))
     if state:
         query = query.filter(University.state == state.upper())
     if control:
@@ -68,6 +139,17 @@ def search(
 
     results = query.all()
 
+    # name search in Python so abbreviations and nicknames work too
+    ranks: dict[int, int] = {}
+    if q:
+        matched = []
+        for u in results:
+            rank = match_rank(u.name, q)
+            if rank is not None:
+                ranks[u.id] = rank
+                matched.append(u)
+        results = matched
+
     # major filter on the JSON list (SQLite-friendly: filter in Python)
     if major:
         needle = major.lower().replace(" ", "_")
@@ -79,7 +161,14 @@ def search(
         results.sort(key=lambda u: u.cost_of_attendance if u.cost_of_attendance is not None else 10**9)
     else:
         results.sort(key=lambda u: u.name)
-    return results
+
+    # relevance wins over alphabetical when the student typed a name
+    if ranks:
+        results.sort(key=lambda u: (ranks[u.id], u.name))
+
+    # 1,500+ real schools - never ship the whole catalog in one response
+    response.headers["X-Total-Count"] = str(len(results))
+    return results[offset : offset + limit]
 
 
 @router.get("/{university_id}", response_model=UniversityOut)

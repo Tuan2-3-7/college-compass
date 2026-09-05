@@ -89,11 +89,27 @@ refusal handling and server-side fallbacks) that activates automatically when
   College Scorecard ingestion that waits out DEMO_KEY rate windows when no
   API key is configured.
 
+## Data status
+
+**1,520 real universities** synced from the US Dept. of Education College
+Scorecard — admission rates, SAT/ACT bands, costs, enrollment, international
+share, and degree programs. Each school shows its `data_source` and
+`last_verified` date in the Finder. The 24 originally-curated schools kept their
+hand-entered deadlines, application platforms, supplemental-essay counts, TOEFL
+minimums, fees, and intl-aid notes — those fields remain unverified sample data
+for every school and are labeled as such.
+
+Re-sync any time (safe, idempotent, upserts by IPEDS unitid):
+
+    cd backend && .venv\Scripts\python -m app.ingestion.run
+
+Scholarship data is still sample-only (13 rows, `last_verified` null).
+
 ## Stack
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy 2, SQLite (swap `DATABASE_URL` for Postgres)
 - **Frontend**: React 18, Vite, Tailwind CSS
-- **Tests**: pytest (93 tests, incl. the spec's edge cases)
+- **Tests**: pytest (102 tests, incl. the spec's edge cases)
 
 ## Run it
 

@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from sqlalchemy import inspect, text
 
 from ..database import Base, SessionLocal, engine
-from .scorecard import sync
+from .scorecard import relink_curated, sync
 
 MIGRATION_COLUMNS = {
     "ipeds_unitid": "INTEGER",
@@ -54,6 +54,8 @@ def main() -> None:
                   f"({result['inserted']} new, {result['updated']} updated).", flush=True)
 
             if not result["rate_limited"]:
+                for kept, dropped in relink_curated(db):
+                    print(f"  merged duplicate '{dropped}' into curated '{kept}'", flush=True)
                 print("Full sync complete.", flush=True)
                 break
 

@@ -25,16 +25,21 @@ function roundsFor(uni) {
 
 export default function Finder() {
   const [filters, setFilters] = useState({
-    major: "", state: "", control: "", max_cost: "",
+    q: "", major: "", state: "", control: "", max_cost: "",
     competitiveness: "", intl_aid: false, sort: "name",
   });
   const [results, setResults] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [myAppIds, setMyAppIds] = useState(new Set());
   const [rounds, setRounds] = useState({}); // uniId -> chosen round
   const [message, setMessage] = useState("");
 
+  const PAGE_SIZE = 24;
+
   async function load() {
     const params = new URLSearchParams();
+    if (filters.q) params.set("q", filters.q);
     if (filters.major) params.set("major", filters.major);
     if (filters.state) params.set("state", filters.state);
     if (filters.control) params.set("control", filters.control);
@@ -42,8 +47,11 @@ export default function Finder() {
     if (filters.competitiveness) params.set("competitiveness", filters.competitiveness);
     if (filters.intl_aid) params.set("intl_aid", "true");
     params.set("sort", filters.sort);
+    params.set("limit", String(PAGE_SIZE));
+    params.set("offset", String(page * PAGE_SIZE));
     const unis = await api(`/api/universities?${params}`);
     setResults(unis);
+    setTotal(unis.totalCount ?? unis.length);
   }
 
   useEffect(() => {
@@ -52,10 +60,11 @@ export default function Finder() {
       setMyAppIds(new Set(apps.map((a) => a.university_id)))
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters, page]);
 
   function set(field, value) {
     setFilters((f) => ({ ...f, [field]: value }));
+    setPage(0); // any filter change restarts paging
   }
 
   async function addToList(uni) {
@@ -84,6 +93,12 @@ export default function Finder() {
       </p>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 shadow-sm">
+        <input
+          className={`${selectCls} min-w-48 flex-1`}
+          placeholder="Search by name…"
+          value={filters.q}
+          onChange={(e) => set("q", e.target.value)}
+        />
         <select className={selectCls} value={filters.major} onChange={(e) => set("major", e.target.value)}>
           <option value="">Any major</option>
           {MAJORS.map((m) => <option key={m} value={m}>{m.replace("_", " ")}</option>)}
@@ -125,6 +140,32 @@ export default function Finder() {
       </div>
 
       {message && <p className="text-sm text-compass-700">{message}</p>}
+
+      <div className="flex items-center justify-between text-sm text-slate-500">
+        <span>
+          {total === 0
+            ? "No universities match these filters."
+            : `${total.toLocaleString()} match${total === 1 ? "" : "es"} · showing ${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)}`}
+        </span>
+        {total > PAGE_SIZE && (
+          <span className="flex items-center gap-2">
+            <button
+              disabled={page === 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="rounded-lg bg-white px-3 py-1 shadow-sm disabled:opacity-40"
+            >
+              ← Prev
+            </button>
+            <button
+              disabled={(page + 1) * PAGE_SIZE >= total}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded-lg bg-white px-3 py-1 shadow-sm disabled:opacity-40"
+            >
+              Next →
+            </button>
+          </span>
+        )}
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         {results.map((u) => {
@@ -189,7 +230,24 @@ export default function Finder() {
           );
         })}
       </div>
-      {results.length === 0 && <p className="text-slate-400">No universities match these filters.</p>}
+      {total > PAGE_SIZE && (
+        <div className="flex justify-center gap-2 pt-2 text-sm">
+          <button
+            disabled={page === 0}
+            onClick={() => { setPage((p) => Math.max(0, p - 1)); window.scrollTo(0, 0); }}
+            className="rounded-lg bg-white px-4 py-2 shadow-sm disabled:opacity-40"
+          >
+            ← Prev
+          </button>
+          <button
+            disabled={(page + 1) * PAGE_SIZE >= total}
+            onClick={() => { setPage((p) => p + 1); window.scrollTo(0, 0); }}
+            className="rounded-lg bg-white px-4 py-2 shadow-sm disabled:opacity-40"
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

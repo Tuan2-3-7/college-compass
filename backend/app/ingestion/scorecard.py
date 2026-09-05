@@ -87,14 +87,32 @@ NAME_ALIASES = {
 }
 
 _CAMPUS_SUFFIX = re.compile(r"\s+main\s+campus$")
+_LEADING_THE = re.compile(r"^the\s+")
 
 
 def normalize_name(name: str) -> str:
-    """Lowercase, strip punctuation/campus suffixes so seed and Scorecard names match."""
+    """Lowercase, strip punctuation, a leading 'The', and campus suffixes, so
+    curated names match Scorecard's ('The University of Alabama')."""
     n = name.lower().replace("-", " ").replace(",", " ").replace(".", "")
     n = re.sub(r"\s+", " ", n).strip()
     n = _CAMPUS_SUFFIX.sub("", n)
+    n = _LEADING_THE.sub("", n)
     return NAME_ALIASES.get(n, n)
+
+
+def name_variants(name: str, city: str = "") -> list[str]:
+    """Normalized forms to try when linking a Scorecard row to a curated one.
+
+    Scorecard appends the campus city to some flagship names
+    ("University of Michigan-Ann Arbor"), so a city-stripped variant is tried too.
+    """
+    base = normalize_name(name)
+    variants = [base]
+    if city:
+        suffix = " " + normalize_name(city)
+        if base.endswith(suffix) and len(base) > len(suffix):
+            variants.append(base[: -len(suffix)].strip())
+    return variants
 
 
 def transform(row: dict) -> dict | None:
@@ -219,14 +237,33 @@ STAT_FIELDS = [
 
 
 def upsert(db: Session, rows: list[dict]) -> dict:
-    """Merge fetched rows into the universities table. Returns counts."""
+    """Merge fetched rows into the universities table. Returns counts.
+
+    Matching order: IPEDS unitid first (stable identity), then normalized name
+    but ONLY against rows that have no unitid yet - i.e. curated seed rows being
+    linked to their Scorecard counterpart for the first time. Without that guard,
+    genuinely different schools that share a name (there are two "Anderson
+    University") would overwrite each other.
+
+    Distinct schools sharing a name are disambiguated on insert, since `name`
+    is unique and is what students see: "Anderson University (SC)".
+    """
     existing = db.query(University).all()
     by_unitid = {u.ipeds_unitid: u for u in existing if u.ipeds_unitid}
     by_name = {normalize_name(u.name): u for u in existing}
+    taken_names = {u.name for u in existing}
 
     updated = inserted = 0
     for row in rows:
-        uni = by_unitid.get(row["ipeds_unitid"]) or by_name.get(normalize_name(row["name"]))
+        uni = by_unitid.get(row["ipeds_unitid"])
+        if uni is None:
+            for variant in name_variants(row["name"], row.get("city", "")):
+                candidate = by_name.get(variant)
+                # only adopt a name match that hasn't been claimed by another school
+                if candidate is not None and candidate.ipeds_unitid is None:
+                    uni = candidate
+                    break
+
         website = row.pop("website", "")
         if uni is not None:
             for field in STAT_FIELDS:
@@ -235,15 +272,70 @@ def upsert(db: Session, rows: list[dict]) -> dict:
             uni.majors = sorted(set(uni.majors or []) | set(row["majors"]))
             if website:
                 uni.links = {**(uni.links or {}), "website": website}
+            by_unitid[row["ipeds_unitid"]] = uni
             updated += 1
         else:
+            name = row["name"]
+            if name in taken_names:  # different school, same name
+                name = f"{row['name']} ({row['state']})"
+                if name in taken_names:
+                    name = f"{row['name']} ({row['city']}, {row['state']})"
             uni = University(
-                name=row["name"],
+                name=name,
                 majors=row["majors"],
                 links={"website": website} if website else {},
                 **{f: row[f] for f in STAT_FIELDS},
             )
             db.add(uni)
+            taken_names.add(name)
+            by_unitid[row["ipeds_unitid"]] = uni
+            by_name.setdefault(normalize_name(name), uni)
             inserted += 1
     db.commit()
     return {"updated": updated, "inserted": inserted, "fetched": len(rows)}
+
+
+def relink_curated(db: Session) -> list[tuple[str, str]]:
+    """Repair pass: absorb Scorecard twins of curated rows the name match missed.
+
+    An earlier sync could insert "University of Michigan-Ann Arbor" as a new row
+    while the curated "University of Michigan" stayed unsynced. This merges the
+    twin's statistics INTO the curated row - preserving its id, so existing
+    applications keep working, and its curated deadlines/essays/TOEFL - then
+    deletes the duplicate. Safe and idempotent: with nothing to merge it is a
+    no-op. Returns the (kept, dropped) name pairs.
+    """
+    from ..models import Application
+
+    unsynced = db.query(University).filter(University.ipeds_unitid.is_(None)).all()
+    synced = db.query(University).filter(University.ipeds_unitid.isnot(None)).all()
+
+    index: dict[str, University] = {}
+    for u in synced:
+        for variant in name_variants(u.name, u.city):
+            index.setdefault(variant, u)
+
+    merged: list[tuple[str, str]] = []
+    for curated in unsynced:
+        twin = index.get(normalize_name(curated.name))
+        if twin is None:
+            continue
+        # never drop a row a student has applied to
+        if db.query(Application).filter(Application.university_id == twin.id).count():
+            continue
+        # snapshot, then delete the twin BEFORE writing its unitid onto the curated
+        # row - both rows may not hold the same unique ipeds_unitid even briefly
+        values = {field: getattr(twin, field) for field in STAT_FIELDS}
+        twin_name = twin.name
+        twin_majors = list(twin.majors or [])
+        twin_links = dict(twin.links or {})
+        db.delete(twin)
+        db.flush()
+
+        for field, value in values.items():
+            setattr(curated, field, value)
+        curated.majors = sorted(set(curated.majors or []) | set(twin_majors))
+        curated.links = {**twin_links, **(curated.links or {})}
+        merged.append((curated.name, twin_name))
+    db.commit()
+    return merged
