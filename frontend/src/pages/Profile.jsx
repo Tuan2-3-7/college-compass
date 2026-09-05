@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, setToken } from "../api";
 
 const MAJORS = [
   "computer_science", "engineering", "biology", "business",
@@ -70,8 +70,19 @@ export default function Profile() {
 
   const isIntl = form.student_type === "international";
 
+  async function deleteAccount() {
+    const confirmed = window.confirm(
+      "Delete your account and ALL your data (profile, applications, checklists, essays, chat history)? This cannot be undone."
+    );
+    if (!confirmed) return;
+    await api("/api/auth/me", { method: "DELETE" });
+    setToken(null);
+    window.location.href = "/login";
+  }
+
   return (
-    <form onSubmit={save} className="max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-6">
+    <form onSubmit={save} className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Student Profile</h1>
         <div className="flex items-center gap-3">
@@ -198,5 +209,21 @@ export default function Profile() {
         </Field>
       </section>
     </form>
+
+      <section className="rounded-xl border border-red-200 bg-red-50/50 p-5">
+        <h2 className="font-semibold text-red-800">Danger zone</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Permanently delete your account and all of your data — profile, applications,
+          checklists, essays and feedback, tutor history, and notifications.
+        </p>
+        <button
+          type="button"
+          onClick={deleteAccount}
+          className="mt-3 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white"
+        >
+          Delete my account
+        </button>
+      </section>
+    </div>
   );
 }

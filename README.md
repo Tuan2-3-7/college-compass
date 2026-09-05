@@ -75,11 +75,25 @@ refusal handling and server-side fallbacks) that activates automatically when
 - **Notifications**: idempotent deadline reminders (due-soon and overdue) with an
   unread-count bell in the header.
 
+## Finishing set ✅
+
+- **Calendar view** (spec #6): month grid of every task due date and application
+  deadline, with priority colors, month navigation, and per-day drill-down.
+- **Progress Tracking** (spec #18): essay score progression chart (per-draft, with
+  hover tooltips and a table view), readiness component history, and per-school
+  checklist completion.
+- **Account deletion** (privacy requirement): one button in Profile → Danger zone
+  removes the account and every piece of the student's data; re-registering the
+  same email starts truly fresh. Other users and the shared catalog are untouched.
+- **Real data sync** (`python -m app.ingestion.run --until-done`): resumable
+  College Scorecard ingestion that waits out DEMO_KEY rate windows when no
+  API key is configured.
+
 ## Stack
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy 2, SQLite (swap `DATABASE_URL` for Postgres)
 - **Frontend**: React 18, Vite, Tailwind CSS
-- **Tests**: pytest (87 tests, incl. the spec's edge cases)
+- **Tests**: pytest (93 tests, incl. the spec's edge cases)
 
 ## Run it
 

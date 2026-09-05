@@ -157,6 +157,8 @@ def sync(db: Session, api_key: str | None = None, min_size: int = 500,
     Returns counts plus `rate_limited` and `next_page` (for resuming).
     """
     key = api_key or os.environ.get("SCORECARD_API_KEY") or "DEMO_KEY"
+    if not key.strip() or "PASTE" in key.upper() or " " in key.strip():
+        key = "DEMO_KEY"  # placeholder or malformed key -> public fallback
     params = {
         "api_key": key,
         "fields": ",".join(FIELDS),
@@ -176,6 +178,10 @@ def sync(db: Session, api_key: str | None = None, min_size: int = 500,
             if resp.status_code == 429:
                 rate_limited = True
                 break
+            if resp.status_code == 403 and params["api_key"] != "DEMO_KEY":
+                print("  API key rejected (403) - falling back to DEMO_KEY")
+                params["api_key"] = "DEMO_KEY"
+                continue
             resp.raise_for_status()
             data = resp.json()
             rows = [t for t in (transform(r) for r in data["results"]) if t is not None]

@@ -5,6 +5,7 @@ const links = [
   { to: "/", label: "Dashboard" },
   { to: "/finder", label: "Finder" },
   { to: "/applications", label: "Applications" },
+  { to: "/calendar", label: "Calendar" },
   { to: "/compare", label: "Compare" },
   { to: "/competitiveness", label: "Competitiveness" },
   { to: "/advisor", label: "Major Advisor" },
@@ -12,6 +13,7 @@ const links = [
   { to: "/tutor", label: "Tutor" },
   { to: "/aid", label: "Aid" },
   { to: "/international", label: "International" },
+  { to: "/progress", label: "Progress" },
   { to: "/profile", label: "Profile" },
 ];
 

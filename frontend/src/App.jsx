@@ -4,7 +4,9 @@ import { api, getToken, setToken } from "./api";
 import Layout from "./components/Layout.jsx";
 import Applications from "./pages/Applications.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
+import Calendar from "./pages/Calendar.jsx";
 import Compare from "./pages/Compare.jsx";
+import Progress from "./pages/Progress.jsx";
 import Competitiveness from "./pages/Competitiveness.jsx";
 import FinancialAid from "./pages/FinancialAid.jsx";
 import International from "./pages/International.jsx";
@@ -70,6 +72,8 @@ export default function App() {
         <Route path="/compare" element={<Compare />} />
         <Route path="/aid" element={<FinancialAid />} />
         <Route path="/international" element={<International />} />
+        <Route path="/calendar" element={<Calendar />} />
+        <Route path="/progress" element={<Progress />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
