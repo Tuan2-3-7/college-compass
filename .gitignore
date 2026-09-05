@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets
+.env
+
+# Data (large / regenerable). Keep the folders, ignore contents.
+data/raw/*
+data/processed/*
+!data/**/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# root db files
+*.db
+
+# frontend
+node_modules/
+dist/

@@ -1,0 +1,63 @@
+import { useEffect, useState } from "react";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { api, getToken, setToken } from "./api";
+import Layout from "./components/Layout.jsx";
+import Applications from "./pages/Applications.jsx";
+import AuthPage from "./pages/AuthPage.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
+import Finder from "./pages/Finder.jsx";
+import Profile from "./pages/Profile.jsx";
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [checking, setChecking] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!getToken()) {
+      setChecking(false);
+      return;
+    }
+    api("/api/auth/me")
+      .then(setUser)
+      .catch(() => {})
+      .finally(() => setChecking(false));
+  }, []);
+
+  function handleAuthed(token) {
+    setToken(token);
+    api("/api/auth/me").then(setUser);
+    navigate("/");
+  }
+
+  function handleLogout() {
+    setToken(null);
+    setUser(null);
+    navigate("/login");
+  }
+
+  if (checking) {
+    return <div className="flex h-screen items-center justify-center text-slate-400">Loading…</div>;
+  }
+
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/login" element={<AuthPage onAuthed={handleAuthed} />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  return (
+    <Layout user={user} onLogout={handleLogout}>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/finder" element={<Finder />} />
+        <Route path="/applications" element={<Applications />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Layout>
+  );
+}

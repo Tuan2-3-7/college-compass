@@ -1,0 +1,69 @@
+# 🧭 College Compass
+
+An AI-powered personalized college admissions coach: helps domestic and international
+students discover suitable US universities, understand requirements, manage the entire
+application process with personalized checklists and deadlines, and (in later phases)
+improve essays, estimate competitiveness, and prepare for their intended major.
+
+Full scope: [docs/SPEC.md](docs/SPEC.md) · Build phases: Foundation → Intelligence → AI → Advanced.
+
+## Current status — Phase 1 (Foundation) ✅
+
+- Accounts (register/login, JWT) with per-user data isolation
+- Student profile: domestic/international, first-year/transfer/graduate, GPA, tests,
+  courses, activities, awards, languages, financial-aid need
+- University database seeded with 24 **sample** universities (illustrative, unverified —
+  every record carries `data_source` and `last_verified`)
+- University Finder: filter by major, state, cost, public/private, selectivity, intl aid;
+  sortable; add to your list with a chosen application round
+- Application Manager: statuses (not started → decision received), deadlines per round,
+  remove, notes
+- **Personalized checklist**: auto-generated per student × university × round — an
+  international CS first-year gets a different list from a domestic biology transfer
+- Dashboard: profile completeness, per-application progress, overdue/due-soon tasks, and
+  a rule-based "What should I do next?"
+
+## Stack
+
+- **Backend**: Python 3.11, FastAPI, SQLAlchemy 2, SQLite (swap `DATABASE_URL` for Postgres)
+- **Frontend**: React 18, Vite, Tailwind CSS
+- **Tests**: pytest (33 tests, incl. the spec's edge cases)
+
+## Run it
+
+Backend (from `backend/`):
+
+    python -m venv .venv
+    .venv\Scripts\activate
+    pip install -r requirements.txt
+    uvicorn app.main:app --port 8000
+
+Frontend (from `frontend/`):
+
+    npm install
+    npm run dev
+
+Open http://localhost:5173 — the Vite dev server proxies `/api` to the backend.
+API docs: http://localhost:8000/docs
+
+Tests (from `backend/`):
+
+    .venv\Scripts\python -m pytest tests/ -q
+
+## Layout
+
+    backend/app/            FastAPI application
+      models.py             SQLAlchemy models (users, profiles, universities, applications, tasks)
+      routers/              auth, profile, universities, applications, tasks, dashboard
+      services/checklist.py personalized checklist generation (pure functions)
+      seed.py               sample university data (UNVERIFIED — dev only)
+    backend/tests/          pytest suite
+    frontend/src/           React app (pages, components, api client)
+    docs/SPEC.md            full product spec
+
+## Data & safety principles
+
+- Sample university data is illustrative; the UI labels it and shows `last_verified`.
+- No admission outcomes are promised; estimates (Phase 2) are clearly framed as estimates.
+- One student can never see another's data (enforced + tested).
+- Real data ingestion (College Scorecard API / IPEDS) replaces the seed in a later phase.
