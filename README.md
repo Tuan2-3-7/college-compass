@@ -70,8 +70,8 @@ contract holds regardless of which provider answers.
 - **Financial-Aid & Scholarship Planner**: personalized forms (FAFSA/CSS for
   domestic; CSS/ISFAA + proof of funds for international), per-school aid picture,
   and scholarship matching by student type, GPA, and major — with one-click
-  deadline tracking into the task system. 13 **sample** scholarships seeded
-  (unverified by design, like the university seed).
+  deadline tracking into the task system. 14 scholarships, 7 verified against
+  the sponsor's own site with a source link, 7 labeled sample data.
 - **International Student Center**: the full post-application pathway
   (application → admission → financial docs → I-20 → SEVIS → F-1 visa → housing →
   arrival) as a timeline with the current stage inferred from application state,
@@ -112,13 +112,16 @@ Re-sync any time (safe, idempotent, upserts by IPEDS unitid):
 
     cd backend && .venv\Scripts\python -m app.ingestion.run
 
-Scholarship data is still sample-only (13 rows, `last_verified` null).
+Scholarship data is hand-curated: 7 entries verified against the sponsor's own
+site (with `source_url` and `last_verified`), 7 still labeled sample data. Deadlines
+and fees for 872 universities come from the Common App requirements grid; re-import
+with `python -m app.ingestion.commonapp`.
 
 ## Stack
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy 2, SQLite (swap `DATABASE_URL` for Postgres)
 - **Frontend**: React 18, Vite, Tailwind CSS
-- **Tests**: pytest (102 tests, incl. the spec's edge cases)
+- **Tests**: pytest (130 tests, incl. the spec's edge cases)
 
 ## Run it
 
