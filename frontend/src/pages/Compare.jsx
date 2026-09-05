@@ -61,6 +61,8 @@ export default function Compare() {
     ["In-state tuition", (u) => money(u.tuition_in_state)],
     ["TOEFL minimum", (u) => u.toefl_min ?? "—"],
     ["Intl. financial aid", (u) => (u.offers_intl_aid ? "Yes" : "Limited/none")],
+    ["Intl. students", (u) =>
+      u.intl_student_share != null ? `${Math.round(u.intl_student_share * 100)}%` : "—"],
     ["Supplemental essays", (u) => u.supplemental_essay_count],
     ["Application fee", (u) => money(u.application_fee)],
     ["Regular deadline", (u) => u.deadlines?.regular ?? (u.deadlines?.rolling ? "rolling" : "—")],

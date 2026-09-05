@@ -78,8 +78,9 @@ export default function Finder() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">University Finder</h1>
       <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-        ⚠️ Sample data for development — approximate and unverified. Confirm everything on official
-        university websites before making decisions.
+        ⚠️ Each school card shows its data source and verification date. Statistics from the US
+        Dept. of Education College Scorecard are real; deadlines, essay counts, and aid details
+        may still be sample data — always confirm on official university websites.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 shadow-sm">
@@ -150,11 +151,17 @@ export default function Finder() {
                 <div className="flex justify-between"><dt className="text-slate-500">Test policy</dt><dd>{u.test_policy}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">TOEFL min</dt><dd>{u.toefl_min ?? "—"}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">Intl. aid</dt><dd>{u.offers_intl_aid ? "Yes" : "Limited/none"}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">Supp. essays</dt><dd>{u.supplemental_essay_count}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Intl. students</dt>
+                  <dd>{u.intl_student_share != null ? `${Math.round(u.intl_student_share * 100)}%` : "—"}</dd></div>
               </dl>
               {u.intl_support_notes && (
                 <p className="mt-2 text-xs text-slate-400">{u.intl_support_notes}</p>
               )}
+              <p className="mt-2 text-[11px] text-slate-400">
+                {u.last_verified
+                  ? `Source: ${u.data_source.split("(")[0].trim()} · verified ${u.last_verified}`
+                  : "⚠️ Sample data — unverified"}
+              </p>
               <div className="mt-3 flex items-center gap-2">
                 {onList ? (
                   <span className="text-sm font-medium text-green-600">✓ On your list</span>

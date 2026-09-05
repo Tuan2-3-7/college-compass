@@ -48,6 +48,7 @@ def compare(
             "tuition_in_state": uni.tuition_in_state,
             "toefl_min": uni.toefl_min,
             "offers_intl_aid": uni.offers_intl_aid,
+            "intl_student_share": uni.intl_student_share,
             "supplemental_essay_count": uni.supplemental_essay_count,
             "application_fee": uni.application_fee,
             "deadlines": uni.deadlines,

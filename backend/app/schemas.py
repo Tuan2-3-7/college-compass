@@ -75,11 +75,13 @@ class ProfileOut(ProfileIn):
 class UniversityOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    ipeds_unitid: int | None
     name: str
     city: str
     state: str
     control: str
     undergrad_enrollment: int | None
+    intl_student_share: float | None
     acceptance_rate: float | None
     sat_25: int | None
     sat_75: int | None

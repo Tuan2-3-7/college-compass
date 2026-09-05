@@ -72,11 +72,13 @@ class University(Base):
     __tablename__ = "universities"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    ipeds_unitid: Mapped[int | None] = mapped_column(Integer, unique=True, index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     city: Mapped[str] = mapped_column(String(100))
     state: Mapped[str] = mapped_column(String(2), index=True)
     control: Mapped[str] = mapped_column(String(10))  # public|private
     undergrad_enrollment: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    intl_student_share: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0..1
 
     acceptance_rate: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0..1
     sat_25: Mapped[int | None] = mapped_column(Integer, nullable=True)
