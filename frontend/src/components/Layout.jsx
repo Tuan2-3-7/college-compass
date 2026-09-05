@@ -6,6 +6,8 @@ const links = [
   { to: "/applications", label: "Applications" },
   { to: "/competitiveness", label: "Competitiveness" },
   { to: "/advisor", label: "Major Advisor" },
+  { to: "/essays", label: "Essays" },
+  { to: "/tutor", label: "Tutor" },
   { to: "/profile", label: "Profile" },
 ];
 

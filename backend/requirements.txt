@@ -9,3 +9,6 @@ PyJWT>=2.8
 httpx>=0.27
 pytest>=8.0
 email-validator>=2.0
+
+# Phase 3 real-AI mode: uncomment and set ANTHROPIC_API_KEY in .env
+# anthropic>=1.0

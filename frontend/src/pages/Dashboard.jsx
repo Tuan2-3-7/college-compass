@@ -15,10 +15,12 @@ function ProgressBar({ value, className = "" }) {
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [recs, setRecs] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
     api("/api/dashboard").then(setData).catch((e) => setError(e.message));
+    api("/api/recommendations").then(setRecs).catch(() => {});
   }, []);
 
   if (error) return <p className="text-red-600">{error}</p>;
@@ -66,6 +68,25 @@ export default function Dashboard() {
           <ProgressBar value={overallTasks} className="mt-2" />
         </div>
       </div>
+
+      {recs.length > 0 && (
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <h2 className="font-semibold">Recommended next steps</h2>
+          <ul className="mt-2 space-y-2">
+            {recs.slice(0, 4).map((r, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <span className="mt-0.5 font-bold text-compass-600">{i + 1}.</span>
+                <div className="min-w-0 flex-1">
+                  <Link to={r.link || "/"} className="font-medium hover:text-compass-600 hover:underline">
+                    {r.title}
+                  </Link>
+                  <p className="text-xs text-slate-500">{r.reason}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {data.tasks_overdue.length > 0 && (
         <div className="rounded-xl bg-white p-4 shadow-sm">

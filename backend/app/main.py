@@ -9,9 +9,12 @@ from .routers import (
     application_routes,
     auth_routes,
     dashboard_routes,
+    essay_routes,
     major_routes,
     profile_routes,
+    recommendation_routes,
     task_routes,
+    tutor_routes,
     university_routes,
 )
 from .seed import seed_universities
@@ -54,6 +57,9 @@ app.include_router(task_routes.router)
 app.include_router(dashboard_routes.router)
 app.include_router(analyzer_routes.router)
 app.include_router(major_routes.router)
+app.include_router(essay_routes.router)
+app.include_router(tutor_routes.router)
+app.include_router(recommendation_routes.router)
 
 
 @app.get("/api/health")

@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from .models import APPLICATION_ROUNDS, APPLICATION_STATUSES, TASK_STATUSES
+from .models import APPLICATION_ROUNDS, APPLICATION_STATUSES, ESSAY_TYPES, TASK_STATUSES
 
 
 # ---------- auth ----------
@@ -182,3 +182,60 @@ class TaskOut(BaseModel):
     status: str
     auto_generated: bool
     sort_order: int
+
+
+# ---------- essays ----------
+
+class EssayIn(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    prompt: str = ""
+    essay_type: str = "personal_statement"
+    word_limit: int | None = Field(default=None, ge=1, le=10000)
+    application_id: int | None = None
+
+    @field_validator("essay_type")
+    @classmethod
+    def _check_type(cls, v: str) -> str:
+        if v not in ESSAY_TYPES:
+            raise ValueError(f"essay_type must be one of {ESSAY_TYPES}")
+        return v
+
+
+class DraftIn(BaseModel):
+    content: str = Field(min_length=1, max_length=100_000)
+
+
+class FeedbackOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    draft_id: int
+    overall_score: int
+    scores: dict
+    paragraph_feedback: list
+    weaknesses: list
+    suggestions: list
+    questions: list
+    flags: dict
+    provider: str
+    created_at: datetime
+
+
+class DraftOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    version: int
+    content: str
+    created_at: datetime
+    feedback: FeedbackOut | None = None
+
+
+class EssayOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    prompt: str
+    essay_type: str
+    word_limit: int | None
+    application_id: int | None
+    created_at: datetime
+    drafts: list[DraftOut] = []

@@ -136,6 +136,71 @@ class Application(Base):
     tasks: Mapped[list["Task"]] = relationship(back_populates="application", cascade="all, delete-orphan")
 
 
+ESSAY_TYPES = ["personal_statement", "supplemental", "scholarship", "other"]
+
+
+class Essay(Base):
+    __tablename__ = "essays"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    application_id: Mapped[int | None] = mapped_column(
+        ForeignKey("applications.id"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(255))
+    prompt: Mapped[str] = mapped_column(Text, default="")
+    essay_type: Mapped[str] = mapped_column(String(30), default="personal_statement")
+    word_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    drafts: Mapped[list["EssayDraft"]] = relationship(
+        back_populates="essay", cascade="all, delete-orphan", order_by="EssayDraft.version"
+    )
+
+
+class EssayDraft(Base):
+    __tablename__ = "essay_drafts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    essay_id: Mapped[int] = mapped_column(ForeignKey("essays.id"), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    essay: Mapped[Essay] = relationship(back_populates="drafts")
+    feedback: Mapped["EssayFeedback | None"] = relationship(
+        back_populates="draft", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class EssayFeedback(Base):
+    __tablename__ = "essay_feedback"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    draft_id: Mapped[int] = mapped_column(ForeignKey("essay_drafts.id"), unique=True)
+    overall_score: Mapped[int] = mapped_column(Integer)
+    scores: Mapped[dict] = mapped_column(JSON, default=dict)          # per-dimension 0-100
+    paragraph_feedback: Mapped[list] = mapped_column(JSON, default=list)
+    weaknesses: Mapped[list] = mapped_column(JSON, default=list)
+    suggestions: Mapped[list] = mapped_column(JSON, default=list)
+    questions: Mapped[list] = mapped_column(JSON, default=list)       # coaching questions
+    flags: Mapped[dict] = mapped_column(JSON, default=dict)           # cliches, repetition
+    provider: Mapped[str] = mapped_column(String(30), default="mock")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    draft: Mapped[EssayDraft] = relationship(back_populates="feedback")
+
+
+class TutorMessage(Base):
+    __tablename__ = "tutor_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    role: Mapped[str] = mapped_column(String(10))  # user|assistant
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 TASK_STATUSES = ["todo", "in_progress", "done"]
 TASK_CATEGORIES = [
     "account", "academics", "testing", "essays", "recommendations",

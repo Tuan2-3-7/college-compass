@@ -6,9 +6,11 @@ import Applications from "./pages/Applications.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
 import Competitiveness from "./pages/Competitiveness.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import Essays from "./pages/Essays.jsx";
 import Finder from "./pages/Finder.jsx";
 import MajorAdvisor from "./pages/MajorAdvisor.jsx";
 import Profile from "./pages/Profile.jsx";
+import Tutor from "./pages/Tutor.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -60,6 +62,8 @@ export default function App() {
         <Route path="/applications" element={<Applications />} />
         <Route path="/competitiveness" element={<Competitiveness />} />
         <Route path="/advisor" element={<MajorAdvisor />} />
+        <Route path="/essays" element={<Essays />} />
+        <Route path="/tutor" element={<Tutor />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

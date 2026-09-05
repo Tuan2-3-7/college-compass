@@ -36,11 +36,31 @@ Full scope: [docs/SPEC.md](docs/SPEC.md) · Build phases: Foundation → Intelli
   from the profile, plus a prioritized improvement plan
   (`backend/app/services/analyzer.py`, `major_advisor.py`, `backend/app/data/majors.py`)
 
+## Phase 3 (AI) ✅ — currently in mock mode
+
+All AI features run behind one provider interface (`backend/app/services/llm.py`):
+a **deterministic mock** (active now — free, offline, labeled "demo mode" in the UI)
+and a **real Claude adapter** (model `claude-opus-5`, official `anthropic` SDK, with
+refusal handling and server-side fallbacks) that activates automatically when
+`ANTHROPIC_API_KEY` is set in `backend/.env` (and `pip install anthropic` is run).
+
+- **Essay Coach**: essays → versioned drafts → analysis. Seven dimension scores
+  (prompt alignment, storytelling, personal voice, specificity, reflection,
+  structure, grammar), paragraph-level notes, cliché/repetition detection,
+  weaknesses, and coaching questions. The coach never writes essay content.
+  Draft-over-draft score progression is tracked per essay.
+- **AI Tutor**: persistent chat. Mock mode covers a fixed glossary of admissions
+  topics (course rigor, supplements, I-20/SEVIS/F-1, FAFSA/CSS, test-optional, …)
+  and says honestly when a question is out of demo scope.
+- **Personalized recommendations** (`/api/recommendations`): rule-based synthesis
+  across deadlines, checklist state, competitiveness subscores, essay scores, and
+  list balance — surfaced on the dashboard as "Recommended next steps".
+
 ## Stack
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy 2, SQLite (swap `DATABASE_URL` for Postgres)
 - **Frontend**: React 18, Vite, Tailwind CSS
-- **Tests**: pytest (51 tests, incl. the spec's edge cases)
+- **Tests**: pytest (70 tests, incl. the spec's edge cases)
 
 ## Run it
 
