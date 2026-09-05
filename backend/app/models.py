@@ -106,10 +106,15 @@ class University(Base):
     application_fee: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     links: Mapped[dict] = mapped_column(JSON, default=dict)
+    # provenance for the statistics (admit rate, scores, costs) - College Scorecard
     data_source: Mapped[str] = mapped_column(
         String(255), default="sample_seed_v1 (illustrative only - verify before relying on it)"
     )
     last_verified: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # provenance for deadlines/fees/essay requirements - a different source and
+    # a different refresh cycle, so it is tracked separately
+    requirements_source: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    requirements_verified: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     applications: Mapped[list["Application"]] = relationship(back_populates="university")
 

@@ -103,6 +103,8 @@ class UniversityOut(BaseModel):
     links: dict
     data_source: str
     last_verified: date | None
+    requirements_source: str | None
+    requirements_verified: date | None
 
 
 # ---------- applications ----------

@@ -87,9 +87,10 @@ export default function Finder() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">University Finder</h1>
       <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-        ⚠️ Each school card shows its data source and verification date. Statistics from the US
-        Dept. of Education College Scorecard are real; deadlines, essay counts, and aid details
-        may still be sample data — always confirm on official university websites.
+        ⚠️ Every card shows where its numbers came from and when they were checked. Statistics
+        come from the US Dept. of Education College Scorecard; deadlines and fees from the Common
+        App requirements grid where the school is a member. Anything still marked sample data is
+        unverified — always confirm on official university websites.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 shadow-sm">
@@ -200,8 +201,12 @@ export default function Finder() {
               )}
               <p className="mt-2 text-[11px] text-slate-400">
                 {u.last_verified
-                  ? `Source: ${u.data_source.split("(")[0].trim()} · verified ${u.last_verified}`
-                  : "⚠️ Sample data — unverified"}
+                  ? `Stats: ${u.data_source.split("(")[0].trim()} · ${u.last_verified}`
+                  : "⚠️ Stats: sample data — unverified"}
+                <br />
+                {u.requirements_verified
+                  ? `Deadlines & fees: ${u.requirements_source} · ${u.requirements_verified}`
+                  : "⚠️ Deadlines & fees: sample data — verify on the official site"}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 {onList ? (

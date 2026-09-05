@@ -91,9 +91,12 @@ _LEADING_THE = re.compile(r"^the\s+")
 
 
 def normalize_name(name: str) -> str:
-    """Lowercase, strip punctuation, a leading 'The', and campus suffixes, so
-    curated names match Scorecard's ('The University of Alabama')."""
-    n = name.lower().replace("-", " ").replace(",", " ").replace(".", "")
+    """Lowercase, strip punctuation, a leading 'The', parenthetical nicknames,
+    and campus suffixes, so curated names match how other sources write them
+    ('The University of Alabama', 'California Institute of Technology (Caltech)').
+    """
+    n = re.sub(r"\s*\([^)]*\)", "", name)  # drop "(Caltech)", "(SUNY)", ...
+    n = n.lower().replace("-", " ").replace(",", " ").replace(".", "")
     n = re.sub(r"\s+", " ", n).strip()
     n = _CAMPUS_SUFFIX.sub("", n)
     n = _LEADING_THE.sub("", n)
