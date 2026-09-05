@@ -30,3 +30,6 @@ dist/
 
 # generated secret, never commit
 JWT_SECRET_DO_NOT_COMMIT.txt
+
+# deploy script holds live secrets once filled in
+deploy.ps1
