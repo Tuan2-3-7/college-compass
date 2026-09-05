@@ -5,9 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, SessionLocal, engine
 from .routers import (
+    analyzer_routes,
     application_routes,
     auth_routes,
     dashboard_routes,
+    major_routes,
     profile_routes,
     task_routes,
     university_routes,
@@ -50,6 +52,8 @@ app.include_router(university_routes.router)
 app.include_router(application_routes.router)
 app.include_router(task_routes.router)
 app.include_router(dashboard_routes.router)
+app.include_router(analyzer_routes.router)
+app.include_router(major_routes.router)
 
 
 @app.get("/api/health")

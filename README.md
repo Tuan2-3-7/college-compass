@@ -23,11 +23,24 @@ Full scope: [docs/SPEC.md](docs/SPEC.md) · Build phases: Foundation → Intelli
 - Dashboard: profile completeness, per-application progress, overdue/due-soon tasks, and
   a rule-based "What should I do next?"
 
+## Phase 2 (Intelligence) ✅
+
+- **Competitiveness Analyzer**: subscores (academics, course rigor, activities,
+  leadership, awards, major preparation) + weighted overall, and per-university
+  Reach/Target/Likely with plain-language reasons. Conservative rules: sub-15%-admit
+  schools are always a reach; international applicants get a strength penalty.
+  Always framed as a heuristic estimate, never a probability.
+- **Major Advisor**: per-major roadmap (academic prep, skills, experiences,
+  application evidence) for 8 majors, personalized against the student's profile
+- **Skill-Gap Analysis**: per-skill strong/developing/missing with cited evidence
+  from the profile, plus a prioritized improvement plan
+  (`backend/app/services/analyzer.py`, `major_advisor.py`, `backend/app/data/majors.py`)
+
 ## Stack
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy 2, SQLite (swap `DATABASE_URL` for Postgres)
 - **Frontend**: React 18, Vite, Tailwind CSS
-- **Tests**: pytest (33 tests, incl. the spec's edge cases)
+- **Tests**: pytest (51 tests, incl. the spec's edge cases)
 
 ## Run it
 
