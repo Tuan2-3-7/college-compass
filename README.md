@@ -1,13 +1,67 @@
 # 🧭 College Compass
 
-An AI-powered personalized college admissions coach: helps domestic and international
-students discover suitable US universities, understand requirements, manage the entire
-application process with personalized checklists and deadlines, and (in later phases)
-improve essays, estimate competitiveness, and prepare for their intended major.
+**A full-stack college admissions platform for domestic and international students** —
+built on real government data, with AI essay coaching and a personalized application
+checklist for every school on your list.
 
-Full scope: [docs/SPEC.md](docs/SPEC.md) · Build phases: Foundation → Intelligence → AI → Advanced.
+Applying to US universities means tracking different deadlines, essay counts, testing
+policies, and financial-aid forms for every school — and international applicants face a
+second layer of it (English tests, credential evaluation, proof of funds, I-20, F-1
+visa). College Compass keeps all of it in one place and tells the student what to do next.
 
-## Current status — Phase 1 (Foundation) ✅
+| | |
+|---|---|
+| **Universities** | 1,520 from the U.S. Dept. of Education College Scorecard |
+| **Verified deadlines & fees** | 872 schools, parsed from the Common App requirements grid |
+| **Scale** | ~9,600 LOC · 42 REST endpoints · 11-table schema · 130 tests |
+| **Stack** | Python · FastAPI · SQLAlchemy · PostgreSQL · React · Tailwind · Docker |
+
+## What's technically interesting here
+
+**A coordinate-based PDF parser.** Application deadlines live in a 54-page Common App
+table where the round a date belongs to (Early Decision vs. Early Action vs. Regular) is
+determined by its **horizontal position**, not its order in the text — plain extraction
+cannot recover it. [`commonapp.py`](backend/app/ingestion/commonapp.py) maps pdfplumber
+word coordinates onto column offsets, and reads wrapped school names by cropping the name
+column, since overlapping lines otherwise interleave character by character
+(`"Abile n e C h r i"`). 1,105 of 1,105 rows parse.
+
+**A pluggable LLM layer.** The essay coach and tutor run on any of four backends —
+Anthropic Claude, Groq/Llama, a local Ollama, or a deterministic offline mock — selected
+by one environment variable ([`llm.py`](backend/app/services/llm.py)). Smaller models are
+handled with brace-balanced JSON extraction, field coercion, and an automatic retry, so
+the API contract holds no matter which provider answers. CI runs on the mock and needs no
+API key.
+
+**Data provenance as a hard rule.** Every university and scholarship row records where its
+numbers came from and when they were checked, and the UI labels anything unverified.
+Schools that aren't Common App members are deliberately left unstamped rather than falsely
+marked verified — [a test enforces
+it](backend/tests/test_commonapp_ingestion.py). Verifying scholarships against sponsors'
+own sites caught three wrong deadlines that would have made students miss cycles.
+
+**Estimates are never predictions.** Reach/Target/Likely, readiness, and essay scores are
+framed as heuristics throughout. Any school under a ~15% admit rate is a reach for every
+applicant regardless of stats, and international applicants carry a strength penalty
+because published admit rates understate their pool.
+
+## Run it locally
+
+    git clone https://github.com/Tuan2-3-7/college-compass.git
+    cd college-compass/backend && python -m venv .venv && .venv\Scripts\activate
+    pip install -r requirements.txt && uvicorn app.main:app --port 8000
+    # in a second terminal
+    cd frontend && npm install && npm run dev
+
+Open http://localhost:5173. Works with no API keys — AI features fall back to the offline
+mock provider. Full scope in [docs/SPEC.md](docs/SPEC.md); deployment in
+[docs/DEPLOY.md](docs/DEPLOY.md).
+
+---
+
+## Features
+
+### Foundation
 
 - Accounts (register/login, JWT) with per-user data isolation
 - Student profile: domestic/international, first-year/transfer/graduate, GPA, tests,
@@ -23,7 +77,7 @@ Full scope: [docs/SPEC.md](docs/SPEC.md) · Build phases: Foundation → Intelli
 - Dashboard: profile completeness, per-application progress, overdue/due-soon tasks, and
   a rule-based "What should I do next?"
 
-## Phase 2 (Intelligence) ✅
+### Intelligence
 
 - **Competitiveness Analyzer**: subscores (academics, course rigor, activities,
   leadership, awards, major preparation) + weighted overall, and per-university
@@ -36,7 +90,7 @@ Full scope: [docs/SPEC.md](docs/SPEC.md) · Build phases: Foundation → Intelli
   from the profile, plus a prioritized improvement plan
   (`backend/app/services/analyzer.py`, `major_advisor.py`, `backend/app/data/majors.py`)
 
-## Phase 3 (AI) ✅ — currently in mock mode
+### AI layer
 
 All AI features run behind one provider interface (`backend/app/services/llm.py`).
 Set `LLM_PROVIDER` (or leave it on `auto`, which picks the best one configured):
@@ -65,7 +119,7 @@ contract holds regardless of which provider answers.
   across deadlines, checklist state, competitiveness subscores, essay scores, and
   list balance — surfaced on the dashboard as "Recommended next steps".
 
-## Phase 4 (Advanced) ✅
+### Advanced
 
 - **Financial-Aid & Scholarship Planner**: personalized forms (FAFSA/CSS for
   domestic; CSS/ISFAA + proof of funds for international), per-school aid picture,
@@ -84,7 +138,7 @@ contract holds regardless of which provider answers.
 - **Notifications**: idempotent deadline reminders (due-soon and overdue) with an
   unread-count bell in the header.
 
-## Finishing set ✅
+### Calendar, progress & privacy
 
 - **Calendar view** (spec #6): month grid of every task due date and application
   deadline, with priority colors, month navigation, and per-day drill-down.
@@ -117,32 +171,17 @@ site (with `source_url` and `last_verified`), 7 still labeled sample data. Deadl
 and fees for 872 universities come from the Common App requirements grid; re-import
 with `python -m app.ingestion.commonapp`.
 
-## Stack
+## Stack & tooling
 
-- **Backend**: Python 3.11, FastAPI, SQLAlchemy 2, SQLite (swap `DATABASE_URL` for Postgres)
-- **Frontend**: React 18, Vite, Tailwind CSS
-- **Tests**: pytest (130 tests, incl. the spec's edge cases)
+- **Backend**: Python 3.11 · FastAPI · SQLAlchemy 2 · Alembic migrations ·
+  SQLite for development, PostgreSQL in production (`DATABASE_URL`)
+- **Frontend**: React 18 · Vite · Tailwind CSS · React Router
+- **Data**: College Scorecard API · pdfplumber · httpx
+- **Tests**: pytest — 130 tests, no API keys required
 
-## Run it
+Interactive API docs run at http://localhost:8000/docs. Tests:
 
-Backend (from `backend/`):
-
-    python -m venv .venv
-    .venv\Scripts\activate
-    pip install -r requirements.txt
-    uvicorn app.main:app --port 8000
-
-Frontend (from `frontend/`):
-
-    npm install
-    npm run dev
-
-Open http://localhost:5173 — the Vite dev server proxies `/api` to the backend.
-API docs: http://localhost:8000/docs
-
-Tests (from `backend/`):
-
-    .venv\Scripts\python -m pytest tests/ -q
+    cd backend && .venv\Scripts\python -m pytest tests/ -q
 
 ## Layout
 
